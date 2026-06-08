@@ -497,8 +497,214 @@ def sincronizar_llave_real(resultados: list[ResultadoRealPartido]) -> None:
 # ==========================================
 
 @app.get("/")
-def estado_servidor():
-    return {"status": "Servidor activo y conectado a la base de datos"}
+def landing_page():
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Quiniela Mundial 2026</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            body { background: #f7f9fb; color: #111827; }
+            .hero {
+                min-height: 88vh;
+                background:
+                    linear-gradient(90deg, rgba(8, 18, 38, 0.82), rgba(8, 18, 38, 0.42)),
+                    url('https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1800&q=80');
+                background-size: cover;
+                background-position: center;
+                color: white;
+                display: flex;
+                align-items: center;
+            }
+            .hero-inner { max-width: 960px; }
+            .count-box {
+                background: rgba(255,255,255,0.12);
+                border: 1px solid rgba(255,255,255,0.22);
+                border-radius: 8px;
+                padding: 14px;
+                min-width: 92px;
+                text-align: center;
+                backdrop-filter: blur(8px);
+            }
+            .count-number { font-size: 2rem; font-weight: 800; line-height: 1; }
+            .section-band { padding: 70px 0; }
+            .feature-card, .prize-card, .live-card {
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+            }
+            .brand-mark {
+                width: 46px;
+                height: 46px;
+                border-radius: 8px;
+                background: #0f766e;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 800;
+                color: white;
+                margin-right: 10px;
+            }
+            .ranking-row { cursor: pointer; }
+            .ranking-row:hover { background: #f8fafc; }
+        </style>
+    </head>
+    <body>
+        <section class="hero">
+            <div class="container hero-inner">
+                <div class="d-flex align-items-center mb-4">
+                    <span class="brand-mark">QM</span>
+                    <span class="fw-bold fs-4">Quiniela Mundial 2026</span>
+                </div>
+                <h1 class="display-3 fw-bold mb-3">Predice los 104 partidos del Mundial 2026</h1>
+                <p class="lead mb-4">Arma tu quiniela, sigue el ranking en vivo y compite con el grupo hasta la final.</p>
+                <div class="d-flex flex-wrap gap-2 mb-5">
+                    <a href="/app" class="btn btn-success btn-lg fw-bold">Registrarme</a>
+                    <a href="/app" class="btn btn-outline-light btn-lg fw-bold">Iniciar sesión</a>
+                    <a href="/admin-panel" class="btn btn-dark btn-lg fw-bold">Administrador</a>
+                </div>
+                <div class="mb-2 text-uppercase small fw-bold">Cierre de inscripciones</div>
+                <div class="d-flex flex-wrap gap-3" id="countdown">
+                    <div class="count-box"><div class="count-number" id="dias">--</div><div>Días</div></div>
+                    <div class="count-box"><div class="count-number" id="horas">--</div><div>Hrs</div></div>
+                    <div class="count-box"><div class="count-number" id="minutos">--</div><div>Min</div></div>
+                    <div class="count-box"><div class="count-number" id="segundos">--</div><div>Seg</div></div>
+                </div>
+                <div class="mt-3">11 de junio de 2026</div>
+            </div>
+        </section>
+
+        <section class="section-band">
+            <div class="container">
+                <div class="text-center mb-5">
+                    <h2 class="fw-bold">¿Cómo participar?</h2>
+                    <p class="text-secondary">Simple para todos: crear cuenta, llenar predicciones y esperar validación.</p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="feature-card p-4 h-100">
+                            <div class="fs-2 fw-bold text-success">01</div>
+                            <h4>Regístrate</h4>
+                            <p class="text-secondary mb-0">Crea tu usuario y genera tu quiniela. El pago se puede reportar desde la app o enviar por WhatsApp.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card p-4 h-100">
+                            <div class="fs-2 fw-bold text-success">02</div>
+                            <h4>Predice</h4>
+                            <p class="text-secondary mb-0">Llena grupos, playoff, tercer lugar y final. El sistema arma la llave automáticamente.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card p-4 h-100">
+                            <div class="fs-2 fw-bold text-success">03</div>
+                            <h4>Compite</h4>
+                            <p class="text-secondary mb-0">Los resultados reales actualizan puntos y ranking en vivo para todos los participantes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-band bg-white">
+            <div class="container">
+                <div class="row g-4 align-items-stretch">
+                    <div class="col-lg-4">
+                        <div class="prize-card p-4 h-100">
+                            <div class="fs-1">1</div>
+                            <h3>Primer lugar</h3>
+                            <p class="text-secondary mb-0">Premio principal definido por el administrador.</p>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="prize-card p-4 h-100">
+                            <div class="fs-1">2</div>
+                            <h3>Segundo lugar</h3>
+                            <p class="text-secondary mb-0">Premio secundario para mantener la pelea viva hasta el final.</p>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="prize-card p-4 h-100">
+                            <div class="fs-1">3</div>
+                            <h3>Tercer lugar</h3>
+                            <p class="text-secondary mb-0">Reconocimiento para completar el podio de la quiniela.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-band">
+            <div class="container">
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div class="live-card p-4 h-100">
+                            <h3 class="fw-bold mb-3">Tabla de posiciones</h3>
+                            <div id="rankingHome" class="list-group"></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="live-card p-4 h-100">
+                            <h3 class="fw-bold mb-3">Estado del torneo</h3>
+                            <p class="text-secondary">104 partidos · 48 selecciones · 12 grupos · llave completa hasta la final.</p>
+                            <a href="/app" class="btn btn-success fw-bold">Entrar a mi quiniela</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="py-4 bg-dark text-white">
+            <div class="container d-flex justify-content-between flex-wrap gap-2">
+                <span>Quiniela Mundial 2026</span>
+                <span class="text-white-50">Hecha para el grupo</span>
+            </div>
+        </footer>
+
+        <script>
+            function actualizarCountdown() {
+                const cierre = new Date('2026-06-11T00:00:00-04:00').getTime();
+                const ahora = Date.now();
+                const diff = Math.max(0, cierre - ahora);
+                const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const horas = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                const minutos = Math.floor((diff / (1000 * 60)) % 60);
+                const segundos = Math.floor((diff / 1000) % 60);
+                document.getElementById('dias').textContent = dias;
+                document.getElementById('horas').textContent = horas;
+                document.getElementById('minutos').textContent = minutos;
+                document.getElementById('segundos').textContent = segundos;
+            }
+
+            async function cargarRankingHome() {
+                const response = await fetch('/ranking');
+                const data = await response.json();
+                const contenedor = document.getElementById('rankingHome');
+                const ranking = data.ranking || [];
+                if (!ranking.length) {
+                    contenedor.innerHTML = '<div class="text-secondary">La tabla se actualizará cuando existan quinielas registradas.</div>';
+                    return;
+                }
+
+                contenedor.innerHTML = ranking.slice(0, 5).map((item, index) => `
+                    <a href="/app" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ranking-row">
+                        <span>${index + 1}. ${item.nombre_quiniela || 'Sin nombre'}</span>
+                        <span class="badge bg-success rounded-pill">${item.puntos_totales || 0} pts</span>
+                    </a>
+                `).join('');
+            }
+
+            actualizarCountdown();
+            setInterval(actualizarCountdown, 1000);
+            cargarRankingHome();
+        </script>
+    </body>
+    </html>
+    """)
 
 @app.get("/config-publica")
 def obtener_config_publica():
