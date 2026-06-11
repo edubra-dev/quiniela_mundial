@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview - Reglas de Puntuación</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Small helper to simulate dark mode toggle */
+    body.dark { background-color: #0f172a; color: #e6eef8; }
+    .prose a { text-decoration: underline; }
+  </style>
+</head>
+<body class="bg-white text-slate-900">
+  <main class="min-h-screen flex items-start justify-center py-12 px-4">
+    <section class="w-full max-w-4xl bg-transparent text-slate-900 dark:text-slate-100 py-12">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="prose prose-slate lg:prose-lg">
+          <h1>🏆 ¿Cómo sumar puntos en nuestra Quiniela?</h1>
+          <p>¡Nuestro sistema de puntuación premia tu precisión! No solo juegas a ganar o empatar, cada gol exacto que pronostiques te acerca a la cima de la tabla. Aquí no hay reglas confusas: los puntos se van sumando según tus aciertos en cada partido. ¡Mira cómo funciona!</p>
+
+          <h2>📊 Reglas de Puntuación</h2>
+          <p>Por cada partido que juegues, puedes sumar puntos de la siguiente manera:</p>
+          <ul>
+            <li><strong>Puntos Base (+3 pts):</strong> Si aciertas qué equipo gana el partido o si logras predecir que terminará en empate.</li>
+            <li><strong>Bono Local (+1 pt):</strong> Si aciertas exactamente la cantidad de goles que mete el equipo LOCAL.</li>
+            <li><strong>Bono Visitante (+1 pt):</strong> Si aciertas exactamente la cantidad de goles que mete el equipo VISITANTE.</li>
+          </ul>
+
+          <blockquote class="border-l-4 border-sky-400 pl-4 italic bg-slate-50 rounded-md py-3">Puntaje Máximo por Partido: ¡5 puntos si logras el marcador exacto!</blockquote>
+
+          <h2>💡 Ejemplos Prácticos</h2>
+          <p>(Resultado Real de ejemplo: 2 – 1)</p>
+        </div>
+
+        <div class="mt-6">
+          <div class="overflow-hidden rounded-lg border border-slate-200">
+            <table class="w-full table-auto text-left">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-4 py-3 text-sm font-medium">Tu Predicción</th>
+                  <th class="px-4 py-3 text-sm font-medium">¿Qué acertaste?</th>
+                  <th class="px-4 py-3 text-sm font-medium">Tus Puntos</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white">
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-4 text-sm font-semibold">2 – 1</td>
+                  <td class="px-4 py-4 text-sm">¡Marcador Exacto! (Ganador + Goles Local + Goles Visitante)</td>
+                  <td class="px-4 py-4 text-sm">
+                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 font-bold">5 pts <span class="text-sm">🔥</span></span>
+                  </td>
+                </tr>
+
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-4 text-sm font-semibold">2 – 0</td>
+                  <td class="px-4 py-4 text-sm">Acertaste el Ganador y los goles del Local.</td>
+                  <td class="px-4 py-4 text-sm"><span class="inline-flex items-center px-3 py-1 rounded-full bg-sky-100 text-sky-800 font-semibold">4 pts</span></td>
+                </tr>
+
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-4 text-sm font-semibold">3 – 1</td>
+                  <td class="px-4 py-4 text-sm">Acertaste el Ganador y los goles del Visitante.</td>
+                  <td class="px-4 py-4 text-sm"><span class="inline-flex items-center px-3 py-1 rounded-full bg-sky-100 text-sky-800 font-semibold">4 pts</span></td>
+                </tr>
+
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-4 text-sm font-semibold">3 – 0</td>
+                  <td class="px-4 py-4 text-sm">Solo acertaste el Ganador (fallaste ambos goles).</td>
+                  <td class="px-4 py-4 text-sm"><span class="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-semibold">3 pts</span></td>
+                </tr>
+
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-4 text-sm font-semibold">2 – 2</td>
+                  <td class="px-4 py-4 text-sm">Fallaste el Ganador, pero le atinaste a los goles del Local.</td>
+                  <td class="px-4 py-4 text-sm"><span class="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-semibold">1 pt</span></td>
+                </tr>
+
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-4 text-sm font-semibold">0 – 1</td>
+                  <td class="px-4 py-4 text-sm">Fallaste el Ganador, pero le atinaste a los goles del Visitante.</td>
+                  <td class="px-4 py-4 text-sm"><span class="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-semibold">1 pt</span></td>
+                </tr>
+
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-4 text-sm font-semibold">0 – 3</td>
+                  <td class="px-4 py-4 text-sm">No acertaste ninguna de las opciones.</td>
+                  <td class="px-4 py-4 text-sm"><span class="inline-flex items-center px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-semibold">0 pts</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-6 prose lg:prose-lg">
+            <p>⚡ ¡Prepara tus pronósticos!</p>
+            <p>Analiza bien a cada equipo. Recuerda que incluso si un partido no sale como esperabas, ¡un solo gol exacto te puede mantener en la jugada!</p>
+          </div>
+
+          <div class="mt-6 flex flex-col sm:flex-row gap-3 items-center">
+            <a href="/app" class="inline-flex items-center justify-center px-5 py-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-semibold shadow-md">Ir a mi Quiniela</a>
+            <a href="/admin-panel" class="inline-flex items-center justify-center px-5 py-3 rounded-md border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-medium">Ver Reglas en Admin</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="fixed bottom-4 right-4 flex gap-2">
+    <button onclick="document.body.classList.toggle('dark')" class="px-3 py-2 rounded bg-slate-800 text-white">Toggle Dark</button>
+    <a href="preview/scoring_preview.html" class="px-3 py-2 rounded bg-sky-600 text-white">Abrir este archivo</a>
+  </div>
+</body>
+</html>
