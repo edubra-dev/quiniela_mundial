@@ -180,10 +180,15 @@ def detectar_ganador(goles_local: int, goles_visitante: int) -> str:
         return "LOCAL"
     if goles_visitante > goles_local:
         return "VISITANTE"
-    return "LOCAL"
+    return "EMPATE"
 
 def detectar_perdedor(goles_local: int, goles_visitante: int) -> str:
-    return "VISITANTE" if detectar_ganador(goles_local, goles_visitante) == "LOCAL" else "LOCAL"
+    ganador = detectar_ganador(goles_local, goles_visitante)
+    if ganador == "LOCAL":
+        return "VISITANTE"
+    if ganador == "VISITANTE":
+        return "LOCAL"
+    return "EMPATE"
 
 def detectar_resultado(goles_local: int, goles_visitante: int) -> str:
     if goles_local > goles_visitante:
@@ -193,8 +198,8 @@ def detectar_resultado(goles_local: int, goles_visitante: int) -> str:
     return "EMPATE"
 
 def calcular_puntos_prediccion(pred: dict, goles_local: int, goles_visitante: int) -> int:
-    pred_local = pred["prediccion_goles_local"]
-    pred_visitante = pred["prediccion_goles_visitante"]
+    pred_local = pred.get("prediccion_goles_local")
+    pred_visitante = pred.get("prediccion_goles_visitante")
 
     if pred_local is None or pred_visitante is None:
         return 0
@@ -202,13 +207,14 @@ def calcular_puntos_prediccion(pred: dict, goles_local: int, goles_visitante: in
     resultado_real = detectar_resultado(goles_local, goles_visitante)
     resultado_predicho = detectar_resultado(pred_local, pred_visitante)
 
-    if pred_local == goles_local and pred_visitante == goles_visitante:
-        return 3
+    puntos = 0
     if resultado_predicho == resultado_real:
-        return 2
-    if pred_local == goles_local or pred_visitante == goles_visitante:
-        return 1
-    return 0
+        puntos += 3
+    if pred_local == goles_local:
+        puntos += 1
+    if pred_visitante == goles_visitante:
+        puntos += 1
+    return puntos
 
 DIECISEISAVOS_SLOTS = {
     73: ("Group A runners-up", "Group B runners-up"),
