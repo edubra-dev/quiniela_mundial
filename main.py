@@ -664,6 +664,15 @@ def landing_page():
             </div>
         </section>
 
+                    <section class="section-band bg-light">
+                        <div class="container">
+                            <div class="text-center mb-4">
+                                <h2 class="fw-bold">Reglas de Puntuación</h2>
+                                <p class="text-secondary">EQUIPO GANADOR o EMPATE = 3pts. +1pt Goles de LOCAL +1pt Goles de VISITANTE = 5pts. NINGUN ACIERTO = 0</p>
+                            </div>
+                        </div>
+                    </section>
+
         <footer class="py-4 bg-dark text-white">
             <div class="container d-flex justify-content-between flex-wrap gap-2">
                 <span>Quiniela Mundial 2026</span>
