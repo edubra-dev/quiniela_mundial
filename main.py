@@ -666,9 +666,47 @@ def landing_page():
 
                     <section class="section-band bg-light">
                         <div class="container">
-                            <div class="text-center mb-4">
-                                <h2 class="fw-bold">Reglas de Puntuación</h2>
-                                <p class="text-secondary">EQUIPO GANADOR o EMPATE = 3pts. +1pt Goles de LOCAL +1pt Goles de VISITANTE = 5pts. NINGUN ACIERTO = 0</p>
+                            <div class="row justify-content-center">
+                                <div class="col-lg-10">
+                                    <div class="d-flex align-items-center gap-4 mb-4">
+                                        <span class="brand-mark">QM</span>
+                                        <h2 class="fw-bold mb-0">Reglas de Puntuación</h2>
+                                    </div>
+
+                                    <div class="card shadow-sm border-0">
+                                        <div class="card-body p-4">
+                                            <div class="row g-3 align-items-center">
+                                                <div class="col-md-7">
+                                                    <p class="lead text-secondary mb-3">Nuestro sistema premia la precisión: no solo el resultado, también los goles exactos cuentan. Resumen rápido:</p>
+                                                    <ul class="list-unstyled">
+                                                        <li class="mb-2"><span class="badge bg-success me-2">+3 pts</span> <strong>Equipo ganador o Empate</strong> — Aciertas quién gana o que termina empate.</li>
+                                                        <li class="mb-2"><span class="badge bg-info text-dark me-2">+1 pt</span> <strong>Goles de LOCAL</strong> — Aciertas exactamente los goles del local.</li>
+                                                        <li class="mb-2"><span class="badge bg-info text-dark me-2">+1 pt</span> <strong>Goles de VISITANTE</strong> — Aciertas exactamente los goles del visitante.</li>
+                                                    </ul>
+                                                    <div class="alert alert-light border mt-3 mb-0" role="alert">
+                                                        <strong>Puntaje Máximo:</strong> 5 pts por partido (3 + 1 + 1). <br/>
+                                                        <strong>Si no aciertas nada:</strong> 0 pts.
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-5">
+                                                    <div class="p-3 bg-white border rounded">
+                                                        <p class="mb-2"><small class="text-muted">Frase oficial</small></p>
+                                                        <p class="fw-semibold">EQUIPO GANADOR o EMPATE = 3pts. +1pt Goles de LOCAL +1pt Goles de VISITANTE = 5pts. NINGUN ACIERTO = 0</p>
+                                                        <hr/>
+                                                        <p class="mb-1"><strong>Ejemplos</strong></p>
+                                                        <ul class="mb-0">
+                                                            <li>Real 2–1 / Tú 2–1 → <span class="fw-bold">5 pts</span></li>
+                                                            <li>Real 2–1 / Tú 2–0 → <span class="fw-bold">4 pts</span></li>
+                                                            <li>Real 2–1 / Tú 3–0 → <span class="fw-bold">3 pts</span></li>
+                                                            <li>Real 2–1 / Tú 0–3 → <span class="fw-bold">0 pts</span></li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
