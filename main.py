@@ -58,6 +58,8 @@ class ResultadoRealPartido(BaseModel):
     partido_id: int
     goles_local: int
     goles_visitante: int
+    goles_penales_local: Optional[int] = None
+    goles_penales_visitante: Optional[int] = None
 
 class CargaMasivaResultados(BaseModel):
     resultados: list[ResultadoRealPartido]
@@ -175,46 +177,135 @@ def crear_quiniela_para_usuario(usuario: dict) -> dict:
 def fase_es_grupo(fase: Optional[str]) -> bool:
     return bool(fase) and str(fase).lower().startswith("grupo ")
 
-def detectar_ganador(goles_local: int, goles_visitante: int) -> str:
-    if goles_local > goles_visitante:
+def normalizar_equipo(nombre: Optional[str]) -> str:
+    return str(nombre or "").strip().lower()
+
+def _goles_totales_para_score(
+    goles_local: int,
+    goles_visitante: int,
+    penales_local: Optional[int] = None,
+    penales_visitante: Optional[int] = None,
+) -> tuple[int, int]:
+    goles_local_total = goles_local + (penales_local or 0)
+    goles_visitante_total = goles_visitante + (penales_visitante or 0)
+    return goles_local_total, goles_visitante_total
+
+
+def detectar_ganador(
+    goles_local: int,
+    goles_visitante: int,
+    penales_local: Optional[int] = None,
+    penales_visitante: Optional[int] = None,
+) -> str:
+    goles_local_total, goles_visitante_total = _goles_totales_para_score(
+        goles_local,
+        goles_visitante,
+        penales_local,
+        penales_visitante,
+    )
+    if goles_local_total > goles_visitante_total:
         return "LOCAL"
-    if goles_visitante > goles_local:
+    if goles_visitante_total > goles_local_total:
         return "VISITANTE"
     return "EMPATE"
 
-def detectar_perdedor(goles_local: int, goles_visitante: int) -> str:
-    ganador = detectar_ganador(goles_local, goles_visitante)
+def detectar_perdedor(
+    goles_local: int,
+    goles_visitante: int,
+    penales_local: Optional[int] = None,
+    penales_visitante: Optional[int] = None,
+) -> str:
+    ganador = detectar_ganador(goles_local, goles_visitante, penales_local, penales_visitante)
     if ganador == "LOCAL":
         return "VISITANTE"
     if ganador == "VISITANTE":
         return "LOCAL"
-    return "EMPATE"
+    return "LOCAL"
 
-def detectar_resultado(goles_local: int, goles_visitante: int) -> str:
-    if goles_local > goles_visitante:
+
+def detectar_resultado(
+    goles_local: int,
+    goles_visitante: int,
+    penales_local: Optional[int] = None,
+    penales_visitante: Optional[int] = None,
+) -> str:
+    goles_local_total, goles_visitante_total = _goles_totales_para_score(
+        goles_local,
+        goles_visitante,
+        penales_local,
+        penales_visitante,
+    )
+    if goles_local_total > goles_visitante_total:
         return "LOCAL"
-    if goles_visitante > goles_local:
+    if goles_visitante_total > goles_local_total:
         return "VISITANTE"
     return "EMPATE"
 
-def calcular_puntos_prediccion(pred: dict, goles_local: int, goles_visitante: int) -> int:
+
+def calcular_puntos_prediccion(
+    pred: dict,
+    goles_local: int,
+    goles_visitante: int,
+    partido: Optional[dict] = None,
+    penales_local: Optional[int] = None,
+    penales_visitante: Optional[int] = None,
+) -> int:
     pred_local = pred.get("prediccion_goles_local")
     pred_visitante = pred.get("prediccion_goles_visitante")
 
     if pred_local is None or pred_visitante is None:
         return 0
 
-    resultado_real = detectar_resultado(goles_local, goles_visitante)
+    goles_local_total, goles_visitante_total = _goles_totales_para_score(
+        goles_local,
+        goles_visitante,
+        penales_local,
+        penales_visitante,
+    )
+
+    if partido and not fase_es_grupo(partido.get("fase")):
+        actual_equipo_local = partido.get("equipo_local")
+        actual_equipo_visitante = partido.get("equipo_visitante")
+
+        if not all([actual_equipo_local, actual_equipo_visitante]):
+            return 0
+
+        actual_winner = None
+        if goles_local_total > goles_visitante_total:
+            actual_winner = actual_equipo_local
+        elif goles_visitante_total > goles_local_total:
+            actual_winner = actual_equipo_visitante
+
+        if not actual_winner:
+            return 0
+
+        predicted_winner = None
+        if pred_local > pred_visitante:
+            predicted_winner = actual_equipo_local
+        elif pred_visitante > pred_local:
+            predicted_winner = actual_equipo_visitante
+
+        if normalizar_equipo(predicted_winner or "") != normalizar_equipo(actual_winner):
+            return 0
+
+        puntos = 3
+        if (actual_winner == actual_equipo_local and pred_local == goles_local_total) or (
+            actual_winner == actual_equipo_visitante and pred_visitante == goles_visitante_total
+        ):
+            return puntos + 1
+
+        return puntos
+
+    resultado_real = detectar_resultado(goles_local, goles_visitante, penales_local, penales_visitante)
     resultado_predicho = detectar_resultado(pred_local, pred_visitante)
 
-    puntos = 0
+    if pred_local == goles_local_total and pred_visitante == goles_visitante_total:
+        return 3
     if resultado_predicho == resultado_real:
-        puntos += 3
-    if pred_local == goles_local:
-        puntos += 1
-    if pred_visitante == goles_visitante:
-        puntos += 1
-    return puntos
+        return 2
+    if pred_local == goles_local_total or pred_visitante == goles_visitante_total:
+        return 1
+    return 0
 
 DIECISEISAVOS_SLOTS = {
     73: ("Group A runners-up", "Group B runners-up"),
@@ -473,13 +564,18 @@ def sincronizar_llave_real(resultados: list[ResultadoRealPartido]) -> None:
         .data
     )
     partidos_por_id = {partido["id"]: partido for partido in partidos}
+    resultados_por_id = {resultado.partido_id: resultado for resultado in resultados}
 
     for partido in partidos:
         if partido.get("goles_local") is None or partido.get("goles_visitante") is None:
             continue
 
-        ganador = detectar_ganador(partido["goles_local"], partido["goles_visitante"])
-        perdedor = detectar_perdedor(partido["goles_local"], partido["goles_visitante"])
+        resultado = resultados_por_id.get(partido["id"])
+        penales_local = getattr(resultado, "goles_penales_local", None) if resultado else None
+        penales_visitante = getattr(resultado, "goles_penales_visitante", None) if resultado else None
+
+        ganador = detectar_ganador(partido["goles_local"], partido["goles_visitante"], penales_local, penales_visitante)
+        perdedor = detectar_perdedor(partido["goles_local"], partido["goles_visitante"], penales_local, penales_visitante)
 
         if partido.get("siguiente_partido_id"):
             nombre_ganador = partido["equipo_local"] if ganador == "LOCAL" else partido["equipo_visitante"]
@@ -1177,11 +1273,13 @@ def procesar_resultados_reales(resultados: list[ResultadoRealPartido]) -> dict:
         raise HTTPException(status_code=400, detail=f"Partidos inexistentes: {faltantes}")
 
     partidos_actualizados = []
+    partidos_por_id = {}
     for partido in partidos_existentes:
         resultado = resultados_por_partido[partido["id"]]
         partido["goles_local"] = resultado.goles_local
         partido["goles_visitante"] = resultado.goles_visitante
         partidos_actualizados.append(partido)
+        partidos_por_id[partido["id"]] = partido
 
     supabase.table("partidos").upsert(partidos_actualizados, on_conflict="id").execute()
     sincronizar_llave_real(list(resultados_por_partido.values()))
@@ -1198,7 +1296,15 @@ def procesar_resultados_reales(resultados: list[ResultadoRealPartido]) -> dict:
 
     for pred in predicciones:
         resultado = resultados_por_partido[pred["partido_id"]]
-        puntos_ganados = calcular_puntos_prediccion(pred, resultado.goles_local, resultado.goles_visitante)
+        partido_real = partidos_por_id.get(pred["partido_id"])
+        puntos_ganados = calcular_puntos_prediccion(
+            pred,
+            resultado.goles_local,
+            resultado.goles_visitante,
+            partido_real,
+            resultado.goles_penales_local,
+            resultado.goles_penales_visitante,
+        )
         predicciones_puntuadas.append({
             "id": pred["id"],
             "quiniela_id": pred["quiniela_id"],
