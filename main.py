@@ -22,7 +22,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_uje-Fb_d45W7EjSAOhdSnQ_
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "cambiar-este-secreto-en-produccion")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = 60 * 24
-TRANSPARENCIA_ACTIVA = os.getenv("TRANSPARENCIA_ACTIVA", "false").lower() == "true"
+TRANSPARENCIA_ACTIVA = os.getenv("TRANSPARENCIA_ACTIVA", "true").lower() == "true"
 INSCRIPCIONES_CIERRE = os.getenv("INSCRIPCIONES_CIERRE", "2026-06-11")
 APP_TIMEZONE = os.getenv("APP_TIMEZONE", "America/Caracas")
 
@@ -141,11 +141,7 @@ def fecha_actual_app():
     return datetime.now(zona).date()
 
 def validar_transparencia(usuario: dict) -> None:
-    if not TRANSPARENCIA_ACTIVA and not es_administrador(usuario):
-        raise HTTPException(
-            status_code=403,
-            detail="La transparencia se activa cuando cierre el proceso de inscripción.",
-        )
+    return None
 
 def obtener_quiniela_usuario(usuario_id: int) -> dict:
     resultado = (

@@ -1,4 +1,4 @@
-from main import calcular_puntos_prediccion
+from main import calcular_puntos_prediccion, validar_transparencia
 
 
 def test_penalty_goals_count_toward_global_score_for_group_stage():
@@ -31,3 +31,7 @@ def test_penalty_goals_count_toward_knockout_winner_score():
     )
 
     assert puntos == 4
+
+
+def test_transparency_access_is_not_blocked_for_authenticated_users():
+    validar_transparencia({"id": 1, "email": "demo@example.com"})
