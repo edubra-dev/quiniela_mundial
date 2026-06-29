@@ -171,7 +171,10 @@ def crear_quiniela_para_usuario(usuario: dict) -> dict:
     return resultado.data[0]
 
 def fase_es_grupo(fase: Optional[str]) -> bool:
-    return bool(fase) and str(fase).lower().startswith("grupo ")
+    if not fase:
+        return False
+    fase_normalizada = re.sub(r"\s+", " ", str(fase).strip().lower())
+    return bool(re.match(r"^(grupo|group)\s+", fase_normalizada))
 
 def normalizar_equipo(nombre: Optional[str]) -> str:
     return str(nombre or "").strip().lower()
