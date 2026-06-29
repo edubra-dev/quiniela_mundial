@@ -176,6 +176,21 @@ def fase_es_grupo(fase: Optional[str]) -> bool:
     fase_normalizada = re.sub(r"\s+", " ", str(fase).strip().lower())
     return bool(re.match(r"^(grupo|group)\s+", fase_normalizada))
 
+
+def partido_es_eliminacion(partido: Optional[dict]) -> bool:
+    if not partido:
+        return False
+
+    partido_id = partido.get("id")
+    if partido_id is not None:
+        try:
+            return int(partido_id) >= 73
+        except (TypeError, ValueError):
+            pass
+
+    return not fase_es_grupo(partido.get("fase"))
+
+
 def normalizar_equipo(nombre: Optional[str]) -> str:
     return str(nombre or "").strip().lower()
 
@@ -262,7 +277,7 @@ def calcular_puntos_prediccion(
         penales_visitante,
     )
 
-    if partido and not fase_es_grupo(partido.get("fase")):
+    if partido and partido_es_eliminacion(partido):
         actual_equipo_local = partido.get("equipo_local")
         actual_equipo_visitante = partido.get("equipo_visitante")
 
