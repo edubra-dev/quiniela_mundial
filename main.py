@@ -194,6 +194,10 @@ def partido_es_eliminacion(partido: Optional[dict]) -> bool:
 def normalizar_equipo(nombre: Optional[str]) -> str:
     return str(nombre or "").strip().lower()
 
+
+def equipo_predicho_o_real(pred: dict, clave: str, equipo_real: Optional[str]) -> Optional[str]:
+    return pred.get(clave) or equipo_real
+
 def _goles_totales_para_score(
     goles_local: int,
     goles_visitante: int,
@@ -285,8 +289,8 @@ def _puntuar_eliminacion_con_llave_bloqueada(
     resultado_real: str,
     resultado_predicho: str,
 ) -> int:
-    equipo_local_predicho = pred.get("equipo_local_predicho")
-    equipo_visitante_predicho = pred.get("equipo_visitante_predicho")
+    equipo_local_predicho = equipo_predicho_o_real(pred, "equipo_local_predicho", actual_equipo_local)
+    equipo_visitante_predicho = equipo_predicho_o_real(pred, "equipo_visitante_predicho", actual_equipo_visitante)
     equipos_predichos = [
         (equipo_local_predicho, pred_local),
         (equipo_visitante_predicho, pred_visitante),
@@ -1649,14 +1653,20 @@ def ver_detalle_quiniela(quiniela_id: int, usuario: dict = Depends(obtener_usuar
         for partido in partidos:
             pred = pred_por_partido.get(partido["id"], {})
             es_grupo = fase_es_grupo(partido.get("fase"))
+            equipo_local_usuario = partido.get("equipo_local") if es_grupo else equipo_predicho_o_real(pred, "equipo_local_predicho", partido.get("equipo_local"))
+            equipo_visitante_usuario = partido.get("equipo_visitante") if es_grupo else equipo_predicho_o_real(pred, "equipo_visitante_predicho", partido.get("equipo_visitante"))
             detalle.append({
                 "partido_id": partido["id"],
                 "fase": partido.get("fase"),
                 "fecha_partido": partido.get("fecha_partido"),
                 "sede": partido.get("sede"),
                 "estadio": partido.get("estadio"),
-                "equipo_local": partido.get("equipo_local") if es_grupo else (pred.get("equipo_local_predicho") or partido.get("equipo_local")),
-                "equipo_visitante": partido.get("equipo_visitante") if es_grupo else (pred.get("equipo_visitante_predicho") or partido.get("equipo_visitante")),
+                "equipo_local": equipo_local_usuario,
+                "equipo_visitante": equipo_visitante_usuario,
+                "equipo_local_usuario": equipo_local_usuario,
+                "equipo_visitante_usuario": equipo_visitante_usuario,
+                "equipo_local_real": partido.get("equipo_local"),
+                "equipo_visitante_real": partido.get("equipo_visitante"),
                 "prediccion_goles_local": pred.get("prediccion_goles_local"),
                 "prediccion_goles_visitante": pred.get("prediccion_goles_visitante"),
                 "resultado_goles_local": partido.get("goles_local"),
@@ -1685,10 +1695,12 @@ def descargar_quiniela_excel(quiniela_id: int, usuario: dict = Depends(obtener_u
         "Fecha",
         "Sede",
         "Estadio",
-        "Equipo Local",
+        "Usuario Local",
         "Pred Local",
         "Pred Visitante",
-        "Equipo Visitante",
+        "Usuario Visitante",
+        "Equipo Real Local",
+        "Equipo Real Visitante",
         "Real Local",
         "Real Visitante",
         "Puntos",
@@ -1705,6 +1717,8 @@ def descargar_quiniela_excel(quiniela_id: int, usuario: dict = Depends(obtener_u
             partido["prediccion_goles_local"],
             partido["prediccion_goles_visitante"],
             partido["equipo_visitante"],
+            partido["equipo_local_real"],
+            partido["equipo_visitante_real"],
             partido["resultado_goles_local"],
             partido["resultado_goles_visitante"],
             partido["puntos_ganados"],
@@ -2284,12 +2298,12 @@ def interfaz_grafica():
                     <tr>
                         <td>${partido.partido_id}</td>
                         <td>${partido.fase || ''}</td>
-                        <td>${partido.equipo_local || ''}</td>
-                        <td class="text-center">${partido.prediccion_goles_local ?? '-'}</td>
-                        <td class="text-center">${partido.prediccion_goles_visitante ?? '-'}</td>
-                        <td>${partido.equipo_visitante || ''}</td>
-                        <td class="text-center">${partido.resultado_goles_local ?? '-'}</td>
-                        <td class="text-center">${partido.resultado_goles_visitante ?? '-'}</td>
+                        <td>${partido.equipo_local_usuario || partido.equipo_local || ''}</td>
+                        <td class="text-center fw-semibold">${partido.prediccion_goles_local ?? '-'} - ${partido.prediccion_goles_visitante ?? '-'}</td>
+                        <td>${partido.equipo_visitante_usuario || partido.equipo_visitante || ''}</td>
+                        <td>${partido.equipo_local_real || ''}</td>
+                        <td class="text-center fw-semibold">${partido.resultado_goles_local ?? '-'} - ${partido.resultado_goles_visitante ?? '-'}</td>
+                        <td>${partido.equipo_visitante_real || ''}</td>
                         <td class="text-center fw-bold">${partido.puntos_ganados || 0}</td>
                     </tr>
                 `).join('');
@@ -2301,12 +2315,12 @@ def interfaz_grafica():
                                 <tr>
                                     <th>#</th>
                                     <th>Fase</th>
-                                    <th>Local</th>
-                                    <th>Pred L</th>
-                                    <th>Pred V</th>
-                                    <th>Visitante</th>
-                                    <th>Real L</th>
-                                    <th>Real V</th>
+                                    <th>Usuario Local</th>
+                                    <th>Pred</th>
+                                    <th>Usuario Visitante</th>
+                                    <th>Real Local</th>
+                                    <th>Real</th>
+                                    <th>Real Visitante</th>
                                     <th>Pts</th>
                                 </tr>
                             </thead>

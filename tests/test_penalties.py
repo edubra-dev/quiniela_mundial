@@ -17,7 +17,7 @@ def test_penalty_goals_count_toward_global_score_for_group_stage():
     assert puntos == 5
 
 
-def test_knockout_without_locked_bracket_team_scores_zero():
+def test_knockout_missing_locked_team_fields_falls_back_to_visible_real_teams():
     pred = {"prediccion_goles_local": 1, "prediccion_goles_visitante": 0}
     partido = {"fase": "Octavos", "equipo_local": "Argentina", "equipo_visitante": "Francia"}
 
@@ -30,7 +30,7 @@ def test_knockout_without_locked_bracket_team_scores_zero():
         penales_visitante=0,
     )
 
-    assert puntos == 0
+    assert puntos == 5
 
 
 def test_penalty_goals_count_toward_knockout_alive_team_score():
