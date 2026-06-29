@@ -256,6 +256,61 @@ def detectar_resultado(
     return "EMPATE"
 
 
+def _puntuar_por_resultado_y_goles(
+    pred_local: int,
+    pred_visitante: int,
+    goles_local_total: int,
+    goles_visitante_total: int,
+    resultado_real: str,
+    resultado_predicho: str,
+) -> int:
+    if pred_local == goles_local_total and pred_visitante == goles_visitante_total:
+        return 3
+    if resultado_predicho == resultado_real:
+        return 2
+    if pred_local == goles_local_total or pred_visitante == goles_visitante_total:
+        return 1
+    return 0
+
+
+def _puntuar_eliminacion_con_llave_bloqueada(
+    pred: dict,
+    pred_local: int,
+    pred_visitante: int,
+    actual_equipo_local: str,
+    actual_equipo_visitante: str,
+    goles_local_total: int,
+    goles_visitante_total: int,
+    resultado_real: str,
+    resultado_predicho: str,
+) -> Optional[int]:
+    equipos_predichos = [
+        ("LOCAL", pred.get("equipo_local_predicho"), pred_local),
+        ("VISITANTE", pred.get("equipo_visitante_predicho"), pred_visitante),
+    ]
+
+    if not any(equipo for _, equipo, _ in equipos_predichos):
+        return None
+
+    reales_por_equipo = {
+        normalizar_equipo(actual_equipo_local): ("LOCAL", goles_local_total),
+        normalizar_equipo(actual_equipo_visitante): ("VISITANTE", goles_visitante_total),
+    }
+
+    puntos = 0
+    for lado_predicho, equipo_predicho, goles_predichos in equipos_predichos:
+        lado_real, goles_reales = reales_por_equipo.get(normalizar_equipo(equipo_predicho), (None, None))
+        if lado_real is None:
+            continue
+
+        if goles_predichos == goles_reales:
+            puntos += 1
+        if lado_predicho == resultado_predicho and lado_real == resultado_real:
+            puntos += 3
+
+    return puntos
+
+
 def calcular_puntos_prediccion(
     pred: dict,
     goles_local: int,
@@ -277,6 +332,9 @@ def calcular_puntos_prediccion(
         penales_visitante,
     )
 
+    resultado_real = detectar_resultado(goles_local, goles_visitante, penales_local, penales_visitante)
+    resultado_predicho = detectar_resultado(pred_local, pred_visitante)
+
     if partido and partido_es_eliminacion(partido):
         actual_equipo_local = partido.get("equipo_local")
         actual_equipo_visitante = partido.get("equipo_visitante")
@@ -284,42 +342,28 @@ def calcular_puntos_prediccion(
         if not all([actual_equipo_local, actual_equipo_visitante]):
             return 0
 
-        actual_winner = None
-        if goles_local_total > goles_visitante_total:
-            actual_winner = actual_equipo_local
-        elif goles_visitante_total > goles_local_total:
-            actual_winner = actual_equipo_visitante
+        puntos_eliminacion = _puntuar_eliminacion_con_llave_bloqueada(
+            pred,
+            pred_local,
+            pred_visitante,
+            actual_equipo_local,
+            actual_equipo_visitante,
+            goles_local_total,
+            goles_visitante_total,
+            resultado_real,
+            resultado_predicho,
+        )
+        if puntos_eliminacion is not None:
+            return puntos_eliminacion
 
-        if not actual_winner:
-            return 0
-
-        predicted_winner = None
-        if pred_local > pred_visitante:
-            predicted_winner = actual_equipo_local
-        elif pred_visitante > pred_local:
-            predicted_winner = actual_equipo_visitante
-
-        if normalizar_equipo(predicted_winner or "") != normalizar_equipo(actual_winner):
-            return 0
-
-        puntos = 3
-        if (actual_winner == actual_equipo_local and pred_local == goles_local_total) or (
-            actual_winner == actual_equipo_visitante and pred_visitante == goles_visitante_total
-        ):
-            return puntos + 1
-
-        return puntos
-
-    resultado_real = detectar_resultado(goles_local, goles_visitante, penales_local, penales_visitante)
-    resultado_predicho = detectar_resultado(pred_local, pred_visitante)
-
-    if pred_local == goles_local_total and pred_visitante == goles_visitante_total:
-        return 3
-    if resultado_predicho == resultado_real:
-        return 2
-    if pred_local == goles_local_total or pred_visitante == goles_visitante_total:
-        return 1
-    return 0
+    return _puntuar_por_resultado_y_goles(
+        pred_local,
+        pred_visitante,
+        goles_local_total,
+        goles_visitante_total,
+        resultado_real,
+        resultado_predicho,
+    )
 
 DIECISEISAVOS_SLOTS = {
     73: ("Group A runners-up", "Group B runners-up"),
