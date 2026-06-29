@@ -264,13 +264,14 @@ def _puntuar_por_resultado_y_goles(
     resultado_real: str,
     resultado_predicho: str,
 ) -> int:
-    if pred_local == goles_local_total and pred_visitante == goles_visitante_total:
-        return 3
+    puntos = 0
     if resultado_predicho == resultado_real:
-        return 2
-    if pred_local == goles_local_total or pred_visitante == goles_visitante_total:
-        return 1
-    return 0
+        puntos += 3
+    if pred_local == goles_local_total:
+        puntos += 1
+    if pred_visitante == goles_visitante_total:
+        puntos += 1
+    return puntos
 
 
 def _puntuar_eliminacion_con_llave_bloqueada(
@@ -283,29 +284,33 @@ def _puntuar_eliminacion_con_llave_bloqueada(
     goles_visitante_total: int,
     resultado_real: str,
     resultado_predicho: str,
-) -> Optional[int]:
+) -> int:
+    equipo_local_predicho = pred.get("equipo_local_predicho")
+    equipo_visitante_predicho = pred.get("equipo_visitante_predicho")
     equipos_predichos = [
-        ("LOCAL", pred.get("equipo_local_predicho"), pred_local),
-        ("VISITANTE", pred.get("equipo_visitante_predicho"), pred_visitante),
+        (equipo_local_predicho, pred_local),
+        (equipo_visitante_predicho, pred_visitante),
     ]
-
-    if not any(equipo for _, equipo, _ in equipos_predichos):
-        return None
 
     reales_por_equipo = {
         normalizar_equipo(actual_equipo_local): ("LOCAL", goles_local_total),
         normalizar_equipo(actual_equipo_visitante): ("VISITANTE", goles_visitante_total),
     }
+    equipo_ganador_predicho = None
+    if resultado_predicho == "LOCAL":
+        equipo_ganador_predicho = equipo_local_predicho
+    elif resultado_predicho == "VISITANTE":
+        equipo_ganador_predicho = equipo_visitante_predicho
 
     puntos = 0
-    for lado_predicho, equipo_predicho, goles_predichos in equipos_predichos:
+    for equipo_predicho, goles_predichos in equipos_predichos:
         lado_real, goles_reales = reales_por_equipo.get(normalizar_equipo(equipo_predicho), (None, None))
         if lado_real is None:
             continue
 
         if goles_predichos == goles_reales:
             puntos += 1
-        if lado_predicho == resultado_predicho and lado_real == resultado_real:
+        if normalizar_equipo(equipo_predicho) == normalizar_equipo(equipo_ganador_predicho) and lado_real == resultado_real:
             puntos += 3
 
     return puntos
@@ -353,8 +358,7 @@ def calcular_puntos_prediccion(
             resultado_real,
             resultado_predicho,
         )
-        if puntos_eliminacion is not None:
-            return puntos_eliminacion
+        return puntos_eliminacion
 
     return _puntuar_por_resultado_y_goles(
         pred_local,
@@ -364,6 +368,89 @@ def calcular_puntos_prediccion(
         resultado_real,
         resultado_predicho,
     )
+
+
+def actualizar_totales_quinielas(quiniela_ids: Optional[set[int]] = None) -> int:
+    query_predicciones = supabase.table("predicciones").select("quiniela_id,puntos_ganados")
+    if quiniela_ids:
+        query_predicciones = query_predicciones.in_("quiniela_id", list(quiniela_ids))
+    predicciones = query_predicciones.execute().data
+
+    totales = {}
+    for pred in predicciones:
+        quiniela_id = pred["quiniela_id"]
+        totales[quiniela_id] = totales.get(quiniela_id, 0) + (pred.get("puntos_ganados") or 0)
+
+    query_quinielas = supabase.table("quinielas").select("id")
+    if quiniela_ids:
+        query_quinielas = query_quinielas.in_("id", list(quiniela_ids))
+    quinielas = query_quinielas.execute().data
+
+    for quiniela in quinielas:
+        quiniela_id = quiniela["id"]
+        supabase.table("quinielas").update(
+            {"puntos_totales": totales.get(quiniela_id, 0)}
+        ).eq("id", quiniela_id).execute()
+
+    return len(quinielas)
+
+
+def recalcular_puntos_guardados(partido_ids: Optional[list[int]] = None) -> dict:
+    query_partidos = supabase.table("partidos").select("*")
+    if partido_ids:
+        query_partidos = query_partidos.in_("id", partido_ids)
+    partidos = query_partidos.execute().data
+
+    partidos_por_id = {
+        partido["id"]: partido
+        for partido in partidos
+        if partido.get("goles_local") is not None and partido.get("goles_visitante") is not None
+    }
+    if not partidos_por_id:
+        return {
+            "partidos_procesados": 0,
+            "predicciones_procesadas": 0,
+            "quinielas_actualizadas": 0,
+        }
+
+    predicciones = (
+        supabase.table("predicciones")
+        .select("*")
+        .in_("partido_id", list(partidos_por_id.keys()))
+        .execute()
+        .data
+    )
+
+    predicciones_puntuadas = []
+    quinielas_afectadas = set()
+    for pred in predicciones:
+        partido = partidos_por_id.get(pred["partido_id"])
+        puntos_ganados = calcular_puntos_prediccion(
+            pred,
+            partido["goles_local"],
+            partido["goles_visitante"],
+            partido,
+            partido.get("goles_penales_local"),
+            partido.get("goles_penales_visitante"),
+        )
+        predicciones_puntuadas.append({
+            "id": pred["id"],
+            "quiniela_id": pred["quiniela_id"],
+            "partido_id": pred["partido_id"],
+            "puntos_ganados": puntos_ganados,
+        })
+        quinielas_afectadas.add(pred["quiniela_id"])
+
+    if predicciones_puntuadas:
+        supabase.table("predicciones").upsert(predicciones_puntuadas, on_conflict="id").execute()
+
+    quinielas_actualizadas = actualizar_totales_quinielas(quinielas_afectadas)
+
+    return {
+        "partidos_procesados": len(partidos_por_id),
+        "predicciones_procesadas": len(predicciones_puntuadas),
+        "quinielas_actualizadas": quinielas_actualizadas,
+    }
 
 DIECISEISAVOS_SLOTS = {
     73: ("Group A runners-up", "Group B runners-up"),
@@ -1375,23 +1462,7 @@ def procesar_resultados_reales(resultados: list[ResultadoRealPartido]) -> dict:
         supabase.table("predicciones").upsert(predicciones_puntuadas, on_conflict="id").execute()
 
     if quinielas_afectadas:
-        todas_predicciones = (
-            supabase.table("predicciones")
-            .select("quiniela_id,puntos_ganados")
-            .in_("quiniela_id", list(quinielas_afectadas))
-            .execute()
-            .data
-        )
-
-        totales = {}
-        for pred in todas_predicciones:
-            quiniela_id = pred["quiniela_id"]
-            totales[quiniela_id] = totales.get(quiniela_id, 0) + (pred.get("puntos_ganados") or 0)
-
-        for quiniela_id, puntos_totales in totales.items():
-            supabase.table("quinielas").update(
-                {"puntos_totales": puntos_totales}
-            ).eq("id", quiniela_id).execute()
+        actualizar_totales_quinielas(quinielas_afectadas)
 
     return {
         "status": "Resultados procesados y ranking actualizado con éxito.",
@@ -1414,6 +1485,19 @@ def cargar_resultado_real(resultado: ResultadoRealPartido, admin: dict = Depends
 def cargar_resultados_masivo(carga: CargaMasivaResultados, admin: dict = Depends(requerir_admin)):
     try:
         return procesar_resultados_reales(carga.resultados)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/recalcular-puntos")
+def recalcular_puntos_admin(admin: dict = Depends(requerir_admin)):
+    try:
+        resultado = recalcular_puntos_guardados()
+        return {
+            "status": "Puntos y ranking recalculados con la regla vigente.",
+            **resultado,
+        }
     except HTTPException:
         raise
     except Exception as e:

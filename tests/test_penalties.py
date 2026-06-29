@@ -14,10 +14,10 @@ def test_penalty_goals_count_toward_global_score_for_group_stage():
         penales_visitante=0,
     )
 
-    assert puntos == 3
+    assert puntos == 5
 
 
-def test_penalty_goals_count_toward_knockout_winner_score():
+def test_knockout_without_locked_bracket_team_scores_zero():
     pred = {"prediccion_goles_local": 1, "prediccion_goles_visitante": 0}
     partido = {"fase": "Octavos", "equipo_local": "Argentina", "equipo_visitante": "Francia"}
 
@@ -30,7 +30,28 @@ def test_penalty_goals_count_toward_knockout_winner_score():
         penales_visitante=0,
     )
 
-    assert puntos == 3
+    assert puntos == 0
+
+
+def test_penalty_goals_count_toward_knockout_alive_team_score():
+    pred = {
+        "prediccion_goles_local": 1,
+        "prediccion_goles_visitante": 0,
+        "equipo_local_predicho": "Argentina",
+        "equipo_visitante_predicho": "Francia",
+    }
+    partido = {"fase": "Octavos", "equipo_local": "Argentina", "equipo_visitante": "Francia"}
+
+    puntos = calcular_puntos_prediccion(
+        pred,
+        goles_local=0,
+        goles_visitante=0,
+        partido=partido,
+        penales_local=1,
+        penales_visitante=0,
+    )
+
+    assert puntos == 5
 
 
 def test_english_group_stage_phase_uses_goal_scoring_rules():
@@ -44,7 +65,7 @@ def test_english_group_stage_phase_uses_goal_scoring_rules():
         partido=partido,
     )
 
-    assert puntos == 2
+    assert puntos == 3
 
 
 def test_knockout_phase_only_scores_when_predicted_team_is_still_alive():
