@@ -1,4 +1,28 @@
-from main import calcular_puntos_prediccion, validar_transparencia
+from main import calcular_puntos_prediccion, siguiente_eliminatoria, validar_transparencia
+
+
+def test_world_cup_2026_round_of_32_feeds_the_correct_round_of_16_slots():
+    expected = {
+        73: (89, "LOCAL"),
+        75: (89, "VISITANTE"),
+        74: (90, "LOCAL"),
+        77: (90, "VISITANTE"),
+        76: (91, "LOCAL"),
+        78: (91, "VISITANTE"),
+        79: (92, "LOCAL"),
+        80: (92, "VISITANTE"),
+        83: (93, "LOCAL"),
+        84: (93, "VISITANTE"),
+        81: (94, "LOCAL"),
+        82: (94, "VISITANTE"),
+        86: (95, "LOCAL"),
+        88: (95, "VISITANTE"),
+        85: (96, "LOCAL"),
+        87: (96, "VISITANTE"),
+    }
+
+    for partido_id, siguiente in expected.items():
+        assert siguiente_eliminatoria({"id": partido_id}) == siguiente
 
 
 def test_penalty_goals_count_toward_global_score_for_group_stage():
