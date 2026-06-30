@@ -489,10 +489,10 @@ TERCEROS_DIECISEISAVOS_POR_COMBINACION = {
 }
 
 SIGUIENTES_ELIMINATORIAS = {
-    73: (89, "LOCAL"),
-    75: (89, "VISITANTE"),
-    74: (90, "LOCAL"),
-    77: (90, "VISITANTE"),
+    74: (89, "LOCAL"),
+    77: (89, "VISITANTE"),
+    73: (90, "LOCAL"),
+    75: (90, "VISITANTE"),
     76: (91, "LOCAL"),
     78: (91, "VISITANTE"),
     79: (92, "LOCAL"),
@@ -575,6 +575,95 @@ def equipo_desde_slot(
                 return tercero["equipo"]
 
     return None
+
+def reconstruir_llave_predicha(quiniela_id: int) -> None:
+    partidos = (
+        supabase.table("partidos")
+        .select("*")
+        .gte("id", 73)
+        .lte("id", 104)
+        .order("id")
+        .execute()
+        .data
+    )
+    predicciones = (
+        supabase.table("predicciones")
+        .select("*")
+        .eq("quiniela_id", quiniela_id)
+        .gte("partido_id", 73)
+        .lte("partido_id", 104)
+        .execute()
+        .data
+    )
+
+    partidos_por_id = {partido["id"]: partido for partido in partidos}
+    pred_por_partido = {pred["partido_id"]: pred for pred in predicciones}
+    arrastres = {}
+
+    for partido_id, (siguiente_id, posicion) in SIGUIENTES_ELIMINATORIAS.items():
+        columna = "equipo_local_predicho" if posicion == "LOCAL" else "equipo_visitante_predicho"
+        arrastres.setdefault(siguiente_id, {
+            "quiniela_id": quiniela_id,
+            "partido_id": siguiente_id,
+        })[columna] = None
+
+    for partido in partidos:
+        partido_id = partido["id"]
+        pred = pred_por_partido.get(partido_id, {})
+        goles_local = pred.get("prediccion_goles_local")
+        goles_visitante = pred.get("prediccion_goles_visitante")
+        siguiente_id, posicion = siguiente_eliminatoria(partido)
+
+        if goles_local is None or goles_visitante is None or not siguiente_id:
+            continue
+
+        ganador = detectar_ganador(goles_local, goles_visitante)
+        if ganador == "LOCAL":
+            nombre_equipo_ganador = pred.get("equipo_local_predicho") or partido.get("equipo_local")
+        else:
+            nombre_equipo_ganador = pred.get("equipo_visitante_predicho") or partido.get("equipo_visitante")
+
+        columna = "equipo_local_predicho" if posicion == "LOCAL" else "equipo_visitante_predicho"
+        arrastre = arrastres.setdefault(siguiente_id, {
+            "quiniela_id": quiniela_id,
+            "partido_id": siguiente_id,
+        })
+        arrastre[columna] = nombre_equipo_ganador
+
+        pred_siguiente = pred_por_partido.setdefault(siguiente_id, {
+            "quiniela_id": quiniela_id,
+            "partido_id": siguiente_id,
+        })
+        pred_siguiente[columna] = nombre_equipo_ganador
+
+    for partido_id in (101, 102):
+        partido = partidos_por_id.get(partido_id)
+        pred = pred_por_partido.get(partido_id, {})
+        if not partido:
+            continue
+
+        goles_local = pred.get("prediccion_goles_local")
+        goles_visitante = pred.get("prediccion_goles_visitante")
+        if goles_local is None or goles_visitante is None:
+            continue
+
+        perdedor = detectar_perdedor(goles_local, goles_visitante)
+        if perdedor == "LOCAL":
+            nombre_equipo_perdedor = pred.get("equipo_local_predicho") or partido.get("equipo_local")
+        else:
+            nombre_equipo_perdedor = pred.get("equipo_visitante_predicho") or partido.get("equipo_visitante")
+
+        columna = "equipo_local_predicho" if partido_id == 101 else "equipo_visitante_predicho"
+        arrastres.setdefault(103, {
+            "quiniela_id": quiniela_id,
+            "partido_id": 103,
+        })[columna] = nombre_equipo_perdedor
+
+    if arrastres:
+        supabase.table("predicciones").upsert(
+            list(arrastres.values()),
+            on_conflict="quiniela_id,partido_id",
+        ).execute()
 
 def recalcular_clasificados_grupos(quiniela_id: int) -> None:
     partidos_grupo = (
@@ -811,6 +900,13 @@ def sincronizar_llave_real(resultados: list[ResultadoRealPartido]) -> None:
     )
     partidos_por_id = {partido["id"]: partido for partido in partidos}
     resultados_por_id = {resultado.partido_id: resultado for resultado in resultados}
+
+    for partido_id, (siguiente_id, posicion) in SIGUIENTES_ELIMINATORIAS.items():
+        columna = "equipo_local" if posicion == "LOCAL" else "equipo_visitante"
+        placeholder = f"Winner Match {partido_id}"
+        supabase.table("partidos").update({columna: placeholder}).eq("id", siguiente_id).execute()
+        if siguiente_id in partidos_por_id:
+            partidos_por_id[siguiente_id][columna] = placeholder
 
     for partido in partidos:
         if partido.get("goles_local") is None or partido.get("goles_visitante") is None:
@@ -1345,6 +1441,9 @@ def guardar_pronostico_en_quiniela(
             datos_tercer_lugar, on_conflict="quiniela_id,partido_id"
         ).execute()
 
+    if arrastrar_ganador:
+        reconstruir_llave_predicha(quiniela_id)
+
     return {"partido_id": pronostico.partido_id, "ganador_detectado": ganador}
 
 @app.post("/quiniela/guardar-pronostico")
@@ -1486,6 +1585,8 @@ def guardar_quiniela_completa(
                 list(arrastres_unificados.values()),
                 on_conflict="quiniela_id,partido_id",
             ).execute()
+
+        reconstruir_llave_predicha(quiniela["id"])
 
         return {
             "status": "Quiniela guardada correctamente.",

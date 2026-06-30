@@ -3,10 +3,10 @@ from main import calcular_puntos_prediccion, siguiente_eliminatoria, validar_tra
 
 def test_world_cup_2026_round_of_32_feeds_the_correct_round_of_16_slots():
     expected = {
-        73: (89, "LOCAL"),
-        75: (89, "VISITANTE"),
-        74: (90, "LOCAL"),
-        77: (90, "VISITANTE"),
+        74: (89, "LOCAL"),
+        77: (89, "VISITANTE"),
+        73: (90, "LOCAL"),
+        75: (90, "VISITANTE"),
         76: (91, "LOCAL"),
         78: (91, "VISITANTE"),
         79: (92, "LOCAL"),
