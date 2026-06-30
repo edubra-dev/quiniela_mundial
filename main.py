@@ -475,10 +475,34 @@ DIECISEISAVOS_SLOTS = {
     88: ("Group D runners-up", "Group G runners-up"),
 }
 
+TERCEROS_DIECISEISAVOS_POR_COMBINACION = {
+    ("B", "D", "E", "F", "I", "J", "K", "L"): {
+        74: "D",
+        77: "F",
+        79: "E",
+        80: "K",
+        81: "B",
+        82: "J",
+        85: "I",
+        87: "L",
+    },
+}
+
 def normalizar_grupo(fase: str) -> str:
     return str(fase).replace("Grupo ", "").strip().upper()
 
-def equipo_desde_slot(slot: str, posiciones: dict, terceros: list, terceros_usados: set) -> Optional[str]:
+def asignacion_terceros_dieci(terceros: list) -> dict:
+    combinacion = tuple(sorted({tercero["grupo"] for tercero in terceros}))
+    return TERCEROS_DIECISEISAVOS_POR_COMBINACION.get(combinacion, {})
+
+def equipo_desde_slot(
+    slot: str,
+    posiciones: dict,
+    terceros: list,
+    terceros_usados: set,
+    partido_id: Optional[int] = None,
+    asignacion_terceros: Optional[dict] = None,
+) -> Optional[str]:
     slot_limpio = str(slot or "").strip()
 
     match_ganador = re.fullmatch(r"Group ([A-L]) winners", slot_limpio)
@@ -494,6 +518,12 @@ def equipo_desde_slot(slot: str, posiciones: dict, terceros: list, terceros_usad
     match_tercero = re.fullmatch(r"Group ([A-L](?:/[A-L])*) third place", slot_limpio)
     if match_tercero:
         grupos_permitidos = set(match_tercero.group(1).split("/"))
+        terceros_por_grupo = {tercero["grupo"]: tercero for tercero in terceros}
+        grupo_asignado = (asignacion_terceros or {}).get(partido_id)
+        if grupo_asignado in grupos_permitidos and grupo_asignado in terceros_por_grupo:
+            terceros_usados.add(grupo_asignado)
+            return terceros_por_grupo[grupo_asignado]["equipo"]
+
         for tercero in terceros:
             if tercero["grupo"] in grupos_permitidos and tercero["grupo"] not in terceros_usados:
                 terceros_usados.add(tercero["grupo"])
@@ -586,23 +616,30 @@ def recalcular_clasificados_grupos(quiniela_id: int) -> None:
         reverse=True,
     )[:8]
 
-    partidos_dieci = (
-        supabase.table("partidos")
-        .select("*")
-        .eq("fase", "Dieciseisavos")
-        .order("id")
-        .execute()
-        .data
-    )
+    asignacion_terceros = asignacion_terceros_dieci(terceros)
     terceros_usados = set()
     datos_dieci = []
 
-    for partido in partidos_dieci:
-        local = equipo_desde_slot(partido.get("equipo_local"), posiciones, terceros, terceros_usados)
-        visitante = equipo_desde_slot(partido.get("equipo_visitante"), posiciones, terceros, terceros_usados)
+    for partido_id, (slot_local, slot_visitante) in DIECISEISAVOS_SLOTS.items():
+        local = equipo_desde_slot(
+            slot_local,
+            posiciones,
+            terceros,
+            terceros_usados,
+            partido_id,
+            asignacion_terceros,
+        )
+        visitante = equipo_desde_slot(
+            slot_visitante,
+            posiciones,
+            terceros,
+            terceros_usados,
+            partido_id,
+            asignacion_terceros,
+        )
         datos_dieci.append({
             "quiniela_id": quiniela_id,
-            "partido_id": partido["id"],
+            "partido_id": partido_id,
             "equipo_local_predicho": local,
             "equipo_visitante_predicho": visitante,
         })
@@ -690,9 +727,24 @@ def recalcular_clasificados_reales_grupos() -> None:
     )[:8]
 
     terceros_usados = set()
+    asignacion_terceros = asignacion_terceros_dieci(terceros)
     for partido_id, (slot_local, slot_visitante) in DIECISEISAVOS_SLOTS.items():
-        local = equipo_desde_slot(slot_local, posiciones, terceros, terceros_usados) or slot_local
-        visitante = equipo_desde_slot(slot_visitante, posiciones, terceros, terceros_usados) or slot_visitante
+        local = equipo_desde_slot(
+            slot_local,
+            posiciones,
+            terceros,
+            terceros_usados,
+            partido_id,
+            asignacion_terceros,
+        ) or slot_local
+        visitante = equipo_desde_slot(
+            slot_visitante,
+            posiciones,
+            terceros,
+            terceros_usados,
+            partido_id,
+            asignacion_terceros,
+        ) or slot_visitante
         supabase.table("partidos").update({
             "equipo_local": local,
             "equipo_visitante": visitante,
@@ -1769,22 +1821,51 @@ def obtener_mi_llave(usuario: dict = Depends(obtener_usuario_actual)):
             pred = pred_por_partido.get(partido["id"], {})
             goles_local = pred.get("prediccion_goles_local")
             goles_visitante = pred.get("prediccion_goles_visitante")
-            ganador = None
+            ganador_predicho = None
+            ganador_real = None
 
-            equipo_local = pred.get("equipo_local_predicho") or partido.get("equipo_local") or "Por definir"
-            equipo_visitante = pred.get("equipo_visitante_predicho") or partido.get("equipo_visitante") or "Por definir"
+            equipo_local_predicho = pred.get("equipo_local_predicho") or partido.get("equipo_local") or "Por definir"
+            equipo_visitante_predicho = pred.get("equipo_visitante_predicho") or partido.get("equipo_visitante") or "Por definir"
+            equipo_local_real = partido.get("equipo_local") or "Por definir"
+            equipo_visitante_real = partido.get("equipo_visitante") or "Por definir"
+            resultado_cargado = partido.get("goles_local") is not None and partido.get("goles_visitante") is not None
 
             if goles_local is not None and goles_visitante is not None:
-                ganador = equipo_local if detectar_ganador(goles_local, goles_visitante) == "LOCAL" else equipo_visitante
+                lado_ganador_predicho = detectar_ganador(goles_local, goles_visitante)
+                if lado_ganador_predicho == "LOCAL":
+                    ganador_predicho = equipo_local_predicho
+                elif lado_ganador_predicho == "VISITANTE":
+                    ganador_predicho = equipo_visitante_predicho
+
+            if resultado_cargado:
+                lado_ganador_real = detectar_ganador(
+                    partido["goles_local"],
+                    partido["goles_visitante"],
+                    partido.get("goles_penales_local"),
+                    partido.get("goles_penales_visitante"),
+                )
+                if lado_ganador_real == "LOCAL":
+                    ganador_real = equipo_local_real
+                elif lado_ganador_real == "VISITANTE":
+                    ganador_real = equipo_visitante_real
 
             llave.append({
                 "id": partido["id"],
                 "fase": partido.get("fase"),
-                "equipo_local": equipo_local,
-                "equipo_visitante": equipo_visitante,
+                "equipo_local": equipo_local_predicho,
+                "equipo_visitante": equipo_visitante_predicho,
+                "equipo_local_predicho": equipo_local_predicho,
+                "equipo_visitante_predicho": equipo_visitante_predicho,
+                "equipo_local_real": equipo_local_real,
+                "equipo_visitante_real": equipo_visitante_real,
                 "goles_local": goles_local,
                 "goles_visitante": goles_visitante,
-                "ganador": ganador,
+                "resultado_goles_local": partido.get("goles_local"),
+                "resultado_goles_visitante": partido.get("goles_visitante"),
+                "ganador": ganador_predicho,
+                "ganador_predicho": ganador_predicho,
+                "ganador_real": ganador_real,
+                "resultado_cargado": resultado_cargado,
             })
 
         final = next((partido for partido in llave if partido["id"] == 104), None)
@@ -1795,7 +1876,9 @@ def obtener_mi_llave(usuario: dict = Depends(obtener_usuario_actual)):
                 "nombre_quiniela": quiniela.get("nombre_quiniela"),
                 "puntos_totales": quiniela.get("puntos_totales", 0),
             },
-            "campeon": final.get("ganador") if final else None,
+            "campeon": final.get("ganador_predicho") if final else None,
+            "campeon_predicho": final.get("ganador_predicho") if final else None,
+            "campeon_real": final.get("ganador_real") if final else None,
             "llave": llave,
         }
 
@@ -2754,11 +2837,14 @@ def vista_llave():
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
             body { background-color: #f6f7f9; }
-            .bracket { display: grid; grid-template-columns: repeat(6, minmax(220px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: 20px; }
+            .bracket { display: grid; grid-template-columns: repeat(6, minmax(260px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: 20px; }
             .round-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; }
             .match-box { border-radius: 8px; background: #fff; border: 1px solid #dee2e6; padding: 10px; margin-bottom: 10px; box-shadow: 0 3px 8px rgba(0,0,0,0.04); }
+            .comparison-block { border-top: 1px solid #eef1f4; margin-top: 8px; padding-top: 8px; }
+            .comparison-label { color: #6c757d; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
             .team-row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; }
             .winner { font-weight: 800; color: #14532d; }
+            .real-winner { font-weight: 800; color: #0f5132; }
             .champion { border-radius: 8px; background: #111827; color: #fff; padding: 18px; margin-bottom: 18px; }
         </style>
     </head>
@@ -2828,9 +2914,13 @@ def vista_llave():
 
                 document.getElementById('loginPanel').classList.add('d-none');
                 document.getElementById('llavePanel').classList.remove('d-none');
+                const campeonReal = data.campeon_real
+                    ? `<div class="mt-2"><span class="text-uppercase small text-secondary-emphasis">Campeón real</span><h3 class="m-0">${data.campeon_real}</h3></div>`
+                    : '';
                 document.getElementById('campeonBox').innerHTML = `
                     <div class="text-uppercase small text-secondary-emphasis">Campeón proyectado</div>
-                    <h2 class="m-0">${data.campeon || 'Por definir'}</h2>
+                    <h2 class="m-0">${data.campeon_predicho || data.campeon || 'Por definir'}</h2>
+                    ${campeonReal}
                 `;
 
                 const bracket = document.getElementById('bracket');
@@ -2850,20 +2940,39 @@ def vista_llave():
             function renderPartido(partido) {
                 const marcadorLocal = partido.goles_local ?? '-';
                 const marcadorVisitante = partido.goles_visitante ?? '-';
-                const localWinner = partido.ganador === partido.equipo_local ? 'winner' : '';
-                const visitWinner = partido.ganador === partido.equipo_visitante ? 'winner' : '';
+                const marcadorRealLocal = partido.resultado_goles_local ?? '-';
+                const marcadorRealVisitante = partido.resultado_goles_visitante ?? '-';
+                const localWinner = partido.ganador_predicho === partido.equipo_local_predicho ? 'winner' : '';
+                const visitWinner = partido.ganador_predicho === partido.equipo_visitante_predicho ? 'winner' : '';
+                const localRealWinner = partido.ganador_real === partido.equipo_local_real ? 'real-winner' : '';
+                const visitRealWinner = partido.ganador_real === partido.equipo_visitante_real ? 'real-winner' : '';
+                const bloqueReal = partido.resultado_cargado ? `
+                    <div class="comparison-block">
+                        <div class="comparison-label">Real</div>
+                        <div class="team-row ${localRealWinner}">
+                            <span>${partido.equipo_local_real}</span>
+                            <span>${marcadorRealLocal}</span>
+                        </div>
+                        <div class="team-row ${visitRealWinner}">
+                            <span>${partido.equipo_visitante_real}</span>
+                            <span>${marcadorRealVisitante}</span>
+                        </div>
+                    </div>
+                ` : '';
 
                 return `
                     <div class="match-box">
                         <div class="text-secondary small mb-1">Partido #${partido.id}</div>
+                        <div class="comparison-label">Pronóstico</div>
                         <div class="team-row ${localWinner}">
-                            <span>${partido.equipo_local}</span>
+                            <span>${partido.equipo_local_predicho || partido.equipo_local}</span>
                             <span>${marcadorLocal}</span>
                         </div>
                         <div class="team-row ${visitWinner}">
-                            <span>${partido.equipo_visitante}</span>
+                            <span>${partido.equipo_visitante_predicho || partido.equipo_visitante}</span>
                             <span>${marcadorVisitante}</span>
                         </div>
+                        ${bloqueReal}
                     </div>
                 `;
             }
